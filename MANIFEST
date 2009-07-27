@@ -1,0 +1,13 @@
+Build.PL
+Changes
+README
+lib/IO/Coderef.pm
+t/examples-from-pod.t
+t/file-copy.t
+t/io-compress-bzip2.t
+t/io-compress-gzip.t
+t/pod.t
+t/read-sha.t
+t/read-variations.t
+t/syswrite-params.t
+t/write-variations.t
