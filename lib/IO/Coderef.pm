@@ -5,15 +5,15 @@ use strict;
 
 =head1 NAME
 
-IO::Coderef - Wrap a code reference up as a filehandle
+IO::Coderef - Emulate file interface for a code reference
 
 =head1 VERSION
 
-Version 0.90
+Version 0.91
 
 =cut
 
-our $VERSION = '0.90';
+our $VERSION = '0.91';
 
 =head1 SYNOPSIS
 
