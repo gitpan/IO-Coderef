@@ -1,7 +1,9 @@
 Build.PL
 Changes
-README
 lib/IO/Coderef.pm
+MANIFEST			This list of files
+README
+t/constructor-args.t
 t/examples-from-pod.t
 t/file-copy.t
 t/io-compress-bzip2.t
@@ -11,3 +13,6 @@ t/read-sha.t
 t/read-variations.t
 t/syswrite-params.t
 t/write-variations.t
+t/wrongway-croak.t
+Makefile.PL
+META.yml

@@ -29,30 +29,35 @@ my $thing = $dbh;
 # Some of the examples are missing code to access the fh and
 # assertions about the results.  Add that here.
 my %extra_code = (
-    ex3 => <<'END',
+    ex3 => <<'EOF',
         my $x; read $fh, $x, 1000; # $x now contains "foo,bar,baz\n0\n0,1\n"
-END
-    ex4 => <<'END',
+EOF
+    ex4 => <<'EOF',
         my $died;
         eval { print $fh "02840284203842038420384\n" }; $died = $@ ? 1 : 0; # $died now contains 0
         eval { print $fh "02840284203842038fg42038f" }; $died = $@ ? 1 : 0; # $died now contains 0
         eval { print $fh "o"                         }; $died = $@ ? 1 : 0; # $died now contains 0
         eval { print $fh "o284028420384203842038f\n" }; $died = $@ ? 1 : 0; # $died now contains 1
-END
-    ex5 => <<'END',
+EOF
+    ex5 => <<'EOF',
         my $x = $ex5_data; # $x now contains $ex5_expect
-END
+EOF
 );
 
-my @test_name = qw(ex1 ex2 ex2a ex3 ex4 ex5);
+my @test_name = qw/ex1 ex2 ex2a ex3 ex4 ex5/;
 my @test_code;
 my $test_count = 0;
+my %skip_example;
 foreach my $test (@test_name) {
     my $code_snippet = $snips->named($test)->as_data;
     $code_snippet or die "failed to extract $test from pod";
     if ($test eq "ex4") {
         eval 'use Digest::SHA';
-        next if $@;
+        if ($@) {
+            $skip_example{'ex4'} = 1;
+            push @test_code, '';
+          next;
+        }
         $code_snippet = "use Digest::SHA;\n$code_snippet";
     }
     $code_snippet .= "\n" . ($extra_code{$test}||'');
@@ -62,13 +67,13 @@ foreach my $test (@test_name) {
 
 plan tests => $test_count;
 
-# $SIG{__WARN__} = sub { die @_ };
+$SIG{__WARN__} = sub { die @_ };
 
 foreach my $i (0 .. $#test_name) {
-    next unless $test_code[$i];
+  next unless $test_code[$i];
+  next if $skip_example{$test_name[$i]};
     eval $test_code[$i];
     my $err = $@ || '';
-    # print STDERR "<<<$test_code[$i]>>>\n";
     is( $err, '', "$test_name[$i] ran without warnings" );
 }
 
@@ -100,11 +105,11 @@ sub IO::Coderef::Fake::fetchrow_array {
     my $place = $fake_dbh_cycle++;
     $fake_dbh_cycle %= 4;
     if ($place == 0) {
-        return qw(foo bar baz);
+        return qw/foo bar baz/;
     } elsif ($place == 1) {
-        return qw(0);
+        return qw/0/;
     } elsif ($place == 2) {
-        return qw(0 1);
+        return qw/0 1/;
     } else {
         return;
     }

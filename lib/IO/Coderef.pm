@@ -9,11 +9,11 @@ IO::Coderef - Emulate file interface for a code reference
 
 =head1 VERSION
 
-Version 0.91
+Version 0.92
 
 =cut
 
-our $VERSION = '0.91';
+our $VERSION = '0.92';
 
 =head1 SYNOPSIS
 
@@ -187,17 +187,17 @@ sub open
     my $self = shift;
     return $self->new(@_) unless ref($self);
 
-    my $mode = shift or croak "mode missing";
-    my $code = shift or croak "coderef missing";
-    ref $code eq "CODE" or croak "non-coderef argument";
-
+    my $mode = shift or croak "mode missing in IO::Coderef::new";
     if ($mode eq '<') {
         *$self->{R} = 1;
     } elsif ($mode eq '>') {
         *$self->{W} = 1;
     } else {
-        croak "invalid mode $mode";
+        croak qq{invalid mode "$mode" in IO::Coderef::new};
     }
+
+    my $code = shift or croak "coderef missing in IO::Coderef::new";
+    ref $code eq "CODE" or croak "non-coderef second argument in IO::Coderef::new";
 
     my $buf = '';
     *$self->{Buf} = \$buf;
@@ -248,7 +248,7 @@ sub binmode
 sub getc
 {
     my $self = shift;
-    *$self->{R} or croak "getc on write-only IO::Coderef";
+    *$self->{R} or croak "read on write-only IO::Coderef";
     my $buf;
     return $buf if $self->read($buf, 1);
     return undef;
@@ -257,7 +257,7 @@ sub getc
 sub ungetc
 {
     my ($self, $char) = @_;
-    *$self->{R} or croak "ungetc on write-only IO::Coderef";
+    *$self->{R} or croak "read on write-only IO::Coderef";
     my $buf = *$self->{Buf};
     $$buf = $char . $$buf;
     return 1;
@@ -286,7 +286,7 @@ sub _doread {
 sub getline
 {
     my $self = shift;
-    *$self->{R} or croak "getline on write-only IO::Coderef";
+    *$self->{R} or croak "read on write-only IO::Coderef";
     return if *$self->{Eof};
     my $buf = *$self->{Buf};
 

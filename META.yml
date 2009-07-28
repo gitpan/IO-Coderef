@@ -1,0 +1,25 @@
+---
+name: IO-Coderef
+version: 0.92
+author:
+  - 'Dave Taylor <dave.taylor.cpan@gmail.com>'
+abstract: Emulate file interface for a code reference
+license: perl
+resources:
+  license: http://dev.perl.org/licenses/
+requires:
+  Carp: 0
+  Symbol: 0
+build_requires:
+  Fatal: 0
+  File::Temp: 0
+  IO::Handle: 0
+  Test::More: 0
+provides:
+  IO::Coderef:
+    file: lib/IO/Coderef.pm
+    version: 0.92
+generated_by: Module::Build version 0.280801
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.2.html
+  version: 1.2

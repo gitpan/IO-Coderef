@@ -1,5 +1,8 @@
 Revision history for IO::Coderef
 
+0.92    2007-07-29
+        More tests
+
 0.91    2007-07-28
         POD tweak
 

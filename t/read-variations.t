@@ -69,8 +69,7 @@ sub run_test {
 sub do_test_reads {
     my ($fh, @coderefs) = @_;
 
-    # We have a selection of bits of code to read bits of data.  Use each in
-    # turn, repeating the last until EOF.
+    # Use each read mechanism in turn, repeating the last until EOF.
     my $dest = '';
     while (@coderefs > 1) {
         my $code = shift @coderefs;
