@@ -9,11 +9,11 @@ IO::Coderef - Emulate file interface for a code reference
 
 =head1 VERSION
 
-Version 0.92
+Version 0.93
 
 =cut
 
-our $VERSION = '0.92';
+our $VERSION = '0.93';
 
 =head1 SYNOPSIS
 
@@ -201,6 +201,7 @@ sub open
 
     my $buf = '';
     *$self->{Buf} = \$buf;
+    *$self->{Pos} = 0;
 
     if (@_) {
         my @args = @_;
@@ -225,7 +226,7 @@ sub close
     if (*$self->{W}) {
         *$self->{Code}('');
     }
-    foreach my $key (qr/Code Buf Eof R W/) {
+    foreach my $key (qr/Code Buf Eof R W Pos/) {
         delete *$self->{$key};
     }
     undef *$self if $] eq "5.008";  # cargo culted from IO::String
@@ -260,6 +261,7 @@ sub ungetc
     *$self->{R} or croak "read on write-only IO::Coderef";
     my $buf = *$self->{Buf};
     $$buf = $char . $$buf;
+    --*$self->{Pos};
     return 1;
 }
 
@@ -292,33 +294,41 @@ sub getline
 
     unless (defined $/) {  # slurp
         $self->_doread while *$self->{Code};
+        *$self->{Pos} += length $$buf;
         *$self->{Eof} = 1;
         return $$buf;
     }
 
     my $rs = length $/ ? $/ : "\n\n";
     for (;;) {
-        $$buf =~ s/^\n+// unless length $/; # In paragraph mode, discard extra newlines.
+        # In paragraph mode, discard extra newlines.
+        if ($/ eq '' and $$buf =~ s/^(\n+)//) {
+            *$self->{Pos} += length $1;
+        }
         my $pos = index $$buf, $rs;
         if ($pos >= 0) {
-            if (length $/) {
-                return substr $$buf, 0, $pos+length($rs), '';
-            } else {
+            *$self->{Pos} += $pos+length($rs);
+            my $ret = substr $$buf, 0, $pos+length($rs), '';
+            unless (length $/) {
                 # paragraph mode, discard extra trailing newlines
-                my $ret = substr $$buf, 0, $pos+length($rs), '';
-                $$buf =~ s/^\n+//;
+                $$buf =~ s/^(\n+)// and *$self->{Pos} += length $1;
                 while (*$self->{Code} and length $$buf == 0) {
                     $self->_doread;
-                    $$buf =~ s/^\n+//;
+                    $$buf =~ s/^(\n+)// and *$self->{Pos} += length $1;
                 }
-                return $ret;
             }
+            $self->_doread while *$self->{Code} and length $$buf == 0;
+            if (length $$buf == 0 and not *$self->{Code}) {
+                *$self->{Eof} = 1;
+            }
+            return $ret;
         }
         if (*$self->{Code}) {
             $self->_doread;
         } else {
             # EOL not in buffer and no more data to come - the last line is missing its EOL.
             *$self->{Eof} = 1;
+            *$self->{Pos} += length $$buf;
             return $$buf if length $$buf;
             return;
         }
@@ -344,14 +354,16 @@ sub read
 {
     my $self = shift;
     *$self->{R} or croak "read on write-only IO::Coderef";
+    my $len = $_[1];
+
+    croak "Negative length" if $len < 0;
     return 0 if *$self->{Eof};
     my $buf = *$self->{Buf};
 
-    my $len = $_[1];
     $self->_doread while *$self->{Code} and $len > length $$buf;
     if ($len > length $$buf) {
         $len = length $$buf;
-        *$self->{Eof} = 1;
+        *$self->{Eof} = 1 unless $len;
     }
 
     if (@_ > 2) { # read offset
@@ -360,6 +372,7 @@ sub read
     else {
         $_[0] = substr($$buf, 0, $len, '');
     }
+    *$self->{Pos} += $len;
     return $len;
 }
 
@@ -417,6 +430,24 @@ sub printf
     return 1;
 }
 
+sub getpos {
+    my $self = shift;
+    return *$self->{Pos};
+}
+
+sub seek
+{
+    croak "Illegal seek";
+}
+
+sub setpos
+{
+    croak "setpos not implemented for IO::Coderef";
+}
+
+*sysseek = \&seek;
+*tell    = \&getpos;
+
 sub write
 {
     my $self = shift;
@@ -441,6 +472,7 @@ sub write
         }
     }
     *$self->{Code}(substr $_[0], $off, $len) if $len;
+    *$self->{Pos} += $len;
     return $len;
 }
 

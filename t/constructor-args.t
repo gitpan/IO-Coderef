@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 20;
+use Test::More;
 
 use IO::Coderef;
 
@@ -11,7 +11,34 @@ my %constructor_source = (
     object  => $fh_src,
 );
 
+my @extra_constructor_args = (
+    [],
+    [[]],
+    [{}],
+    [0],
+    [[0]],
+    [[1,2,3]],
+    [undef],
+    [[undef]],
+    [1, 2, 3],
+    [undef, undef, undef],
+    [{}, [], {}, \$fh_src],
+);
+my $consarg;
+
+sub read_callback {
+    is_deeply( [@_], $consarg, "constructor args passed through to callback" );
+    return;
+}
+
+plan tests => 2 * (@extra_constructor_args + 10);
+
 while ( my ($src_name, $src) = each %constructor_source ) {
+    foreach my $c (@extra_constructor_args) {
+        $consarg = $c;
+        IO::Coderef->new("<", \&read_callback, @$consarg)->getc;
+    }
+
     my $res;
 
     eval { $res = $src->new };

@@ -16,6 +16,7 @@ my $builder = Module::Build->new(
         'Fatal'      => 0,
         'File::Temp' => 0,
         'IO::Handle' => 0,
+        'Fcntl'      => 0,
     },
     add_to_cleanup      => [ 'IO::Coderef-*' ],
     create_makefile_pl => 'traditional',

@@ -7,6 +7,7 @@ WriteMakefile
           'PREREQ_PM' => {
                            'Carp' => 0,
                            'Fatal' => 0,
+                           'Fcntl' => 0,
                            'File::Temp' => 0,
                            'IO::Handle' => 0,
                            'Symbol' => 0,

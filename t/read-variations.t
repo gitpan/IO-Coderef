@@ -1,11 +1,17 @@
 use strict;
 use warnings;
-use Test::More tests => 123930;
+use Test::More tests => 194395;
 
 use IO::Coderef;
 use IO::Handle;
+use File::Temp qw/tempdir/;
+use Fatal qw/open close/;
+use Fcntl 'SEEK_CUR';
+
+our $testfile = tempdir(CLEANUP => 1) . "/testfile";
 
 our $read_dest;
+our %tell_result_sequence;
 
 # the block size for the coderef to serve up data
 my @test_block_sizes = (1, 2, 3, 10, 1_000_000);
@@ -30,13 +36,17 @@ my %data_strings = (
     allbytes => join('', map {chr} (0..255)),
 );
 
-foreach my $use_sysread (0, 1) {
+our $use_sysread;
+foreach $use_sysread (0, 1) {
     my @readcode = build_read_code($use_sysread, \@test_block_sizes);
     foreach my $str (keys %data_strings) {
+        open my $fh, ">", $testfile;
+        print $fh $data_strings{$str};
+        close $fh;
         foreach my $seglen (@test_block_sizes) {
             foreach my $readcode1 (@readcode) {
                 foreach my $readcode2 (@readcode) {
-                    run_test($str, $seglen, $readcode1, $readcode2);
+                    run_test($str, $testfile, $seglen, $readcode1, $readcode2);
                 }
             }
         }
@@ -44,20 +54,23 @@ foreach my $use_sysread (0, 1) {
 }
 
 sub run_test {
-    my ($str, $seglen, @readcode) = @_;
+    my ($str, $file_holding_str, $seglen, @readcode) = @_;
     my $srccode = join "::", map {$_->{SrcCode}} @readcode;
+    my $para_mode_used = grep {$_->{ParaMode}} @readcode;
 
     my $segs = segment_input($data_strings{$str}, $seglen);
     my $fh = IO::Coderef->new('<', \&readsub, $segs);
-    my $got_via_io_coderef = do_test_reads($fh, map {$_->{CodeRef}} @readcode);
+    my $got_via_io_coderef = do_test_reads($fh, 1, map {$_->{CodeRef}} @readcode);
 
-    # Use perl's builtin stringio to determine what the results should be with
-    # this combination of read ops.  Builtin stringio doesn't play nicely with
-    # sysread, so avoid it.
-    open my $stringio_fh, "<", \$data_strings{$str} or die "stringio open: $!";
-    my $got_via_stringio = do_test_reads($stringio_fh, map {$_->{CodeRefNoSysread}} @readcode);
+    # Use a real file to determine what the results should be with this combination
+    # of read ops.
+    open my $real_fh, "<", $file_holding_str;
+    my $got_via_realfile = do_test_reads($real_fh, 0, map {$_->{CodeRef}} @readcode);
 
-    is( $got_via_io_coderef, $got_via_stringio, "$srccode $str $seglen matched stringio results" );
+    is( $got_via_io_coderef, $got_via_realfile, "$srccode $str $seglen matched real file results" );
+
+    is( $tell_result_sequence{1}, $tell_result_sequence{0},
+               "$srccode $str $seglen tell() matched real file results" );
 
     # In paragraph mode newlines can be discarded, otherwise the output should
     # match the input exactly.  
@@ -66,16 +79,34 @@ sub run_test {
     }
 }
 
+sub systell {
+    my $ret = sysseek($_[0], 0, SEEK_CUR);
+    return 0 if $ret eq "0 but true";
+    return $ret;
+}
+
 sub do_test_reads {
-    my ($fh, @coderefs) = @_;
+    my ($fh, $is_io_coderef, @coderefs) = @_;
+
+    # tell() won't work on the real file if I've used sysread on it, use sysseek to emulate it in that case.
+    my $mytell = $use_sysread && ! $is_io_coderef ? \&systell : sub { tell $_[0] };
 
     # Use each read mechanism in turn, repeating the last until EOF.
     my $dest = '';
-    while (@coderefs > 1) {
+    my @tell = ($mytell->($fh));
+    my $go = 1;
+    while ($go and @coderefs > 1) {
         my $code = shift @coderefs;
-        $code->($fh, \$dest);
+        $code->($fh, \$dest) or $go = 0;
+        push @tell, $mytell->($fh);
+
     }
-    1 while $coderefs[0]->($fh, \$dest);
+    while ($go and $coderefs[0]->($fh, \$dest)) {
+        push @tell, $mytell->($fh);
+    }
+    push @tell, $mytell->($fh);
+
+    $tell_result_sequence{$is_io_coderef} = join ",", @tell;
     return $dest;
 }
 

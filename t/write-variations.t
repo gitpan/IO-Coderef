@@ -1,18 +1,21 @@
 use strict;
 use warnings;
-use Test::More tests => 29021;
+use Test::More tests => 58042;
 
 use IO::Coderef;
 use IO::Handle;
 use File::Temp qw/tempdir/;
+use Fcntl 'SEEK_CUR';
 
 our $test_write_dest;
+our %tell_result_sequence;
 our $failure_message;
+our $test_srccode;
 
 our $tmpfile = tempdir(CLEANUP => 1) . "/testfile";
 
-
-foreach my $use_syswrite (0, 1) {
+our $use_syswrite;
+foreach $use_syswrite (0, 1) {
     my @writecode = build_write_code($use_syswrite);
     foreach my $writecode1 (@writecode) {
         foreach my $writecode2 (@writecode) {
@@ -23,15 +26,15 @@ foreach my $use_syswrite (0, 1) {
 
 sub run_test {
     my (@writecode) = @_;
-    my $srccode = join "::", map {$_->{SrcCode}} @writecode;
+    $test_srccode = join "::", map {$_->{SrcCode}} @writecode;
 
     my $fh = IO::Coderef->new('>', \&writesub);
     local $test_write_dest = '';
-    do_test_writes($fh, map {$_->{CodeRef}} @writecode);
+    do_test_writes($fh, 1, map {$_->{CodeRef}} @writecode);
     my $got = $test_write_dest;
 
     if ($failure_message) {
-        fail("$srccode test bailed: iocode write: $failure_message");
+        fail("$test_srccode test bailed: iocode write: $failure_message");
         undef $failure_message;
         return;
     }
@@ -39,26 +42,40 @@ sub run_test {
     # Check that the results are correct by applying the same sequence of
     # writes to a real file and comparing.
     open my $ref_fh, ">", $tmpfile;
-    do_test_writes($ref_fh, map {$_->{CodeRef}} @writecode);
+    do_test_writes($ref_fh, 0,  map {$_->{CodeRef}} @writecode);
     close $ref_fh;
     open $ref_fh, "<", $tmpfile;
     my $want = do { local $/ ; <$ref_fh> };
 
     if ($failure_message) {
-        fail("$srccode test bailed: real write: $failure_message");
+        fail("$test_srccode test bailed: real write: $failure_message");
         undef $failure_message;
         return;
     }
 
-    is( $got, $want, "$srccode matched real file results" );
+    is( $got, $want, "$test_srccode data matched real file results" );
+    is( $tell_result_sequence{1}, $tell_result_sequence{0},
+               "$test_srccode tell() values matched real file results" );
+}
+
+sub systell {
+    my $ret = sysseek($_[0], 0, SEEK_CUR);
+    return 0 if $ret eq "0 but true";
+    return $ret;
 }
 
 sub do_test_writes {
-    my ($fh, @coderefs) = @_;
+    my ($fh, $is_io_coderef, @coderefs) = @_;
 
+    # tell() won't work on the real file if I've used syswrite on it, use sysseek to emulate it in that case.
+    my $mytell = $use_syswrite && ! $is_io_coderef ? \&systell : sub { tell $_[0] };
+
+    my @tell = ($mytell->($fh));
     foreach my $code (@coderefs) {
         $code->($fh);
+        push @tell, $mytell->($fh);
     }
+    $tell_result_sequence{$is_io_coderef} = join ",", @tell;
 }
 
 sub writesub {

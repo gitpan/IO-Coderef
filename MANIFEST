@@ -8,6 +8,10 @@ t/examples-from-pod.t
 t/file-copy.t
 t/io-compress-bzip2.t
 t/io-compress-gzip.t
+t/iostring-close.t
+t/iostring-para.t
+t/iostring-read.t
+t/iostring-write.t
 t/pod.t
 t/read-sha.t
 t/read-variations.t

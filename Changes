@@ -1,5 +1,10 @@
 Revision history for IO::Coderef
 
+0.93    2007-07-29
+        Even more tests.
+        Pillaged some test scripts from IO::String.
+        Added tell() support.
+
 0.92    2007-07-29
         More tests
 
