@@ -1,10 +1,11 @@
 use strict;
 use warnings;
-use Test::More tests => 194395;
+use Test::More tests => 363290;
 
 use IO::Coderef;
 use IO::Handle;
 use File::Temp qw/tempdir/;
+use File::Slurp;
 use Fatal qw/open close/;
 use Fcntl 'SEEK_CUR';
 
@@ -37,16 +38,18 @@ my %data_strings = (
 );
 
 our $use_sysread;
+our $do_ungetc;
 foreach $use_sysread (0, 1) {
-    my @readcode = build_read_code($use_sysread, \@test_block_sizes);
-    foreach my $str (keys %data_strings) {
-        open my $fh, ">", $testfile;
-        print $fh $data_strings{$str};
-        close $fh;
-        foreach my $seglen (@test_block_sizes) {
-            foreach my $readcode1 (@readcode) {
-                foreach my $readcode2 (@readcode) {
-                    run_test($str, $testfile, $seglen, $readcode1, $readcode2);
+    foreach $do_ungetc (0, 1) {
+        next if $use_sysread and $do_ungetc;
+        my @readcode = build_read_code($use_sysread, \@test_block_sizes);
+        foreach my $str (keys %data_strings) {
+            write_file $testfile, $data_strings{$str};
+            foreach my $seglen (@test_block_sizes) {
+                foreach my $readcode1 (@readcode) {
+                    foreach my $readcode2 (@readcode) {
+                        run_test($str, $testfile, $seglen, $readcode1, $readcode2);
+                    }
                 }
             }
         }
@@ -67,15 +70,15 @@ sub run_test {
     open my $real_fh, "<", $file_holding_str;
     my $got_via_realfile = do_test_reads($real_fh, 0, map {$_->{CodeRef}} @readcode);
 
-    is( $got_via_io_coderef, $got_via_realfile, "$srccode $str $seglen matched real file results" );
+    is( $got_via_io_coderef, $got_via_realfile, "$srccode $str $seglen/$do_ungetc matched real file results" );
 
     is( $tell_result_sequence{1}, $tell_result_sequence{0},
-               "$srccode $str $seglen tell() matched real file results" );
+               "$srccode $str $seglen/$do_ungetc tell() matched real file results" );
 
     # In paragraph mode newlines can be discarded, otherwise the output should
     # match the input exactly.  
     unless (grep {$_->{ParaMode}} @readcode) {
-        is( $got_via_io_coderef, $data_strings{$str}, "$srccode recreated $str ($seglen)" );
+        is( $got_via_io_coderef, $data_strings{$str}, "$srccode recreated $str ($seglen/$do_ungetc)" );
     }
 }
 
@@ -99,7 +102,10 @@ sub do_test_reads {
         my $code = shift @coderefs;
         $code->($fh, \$dest) or $go = 0;
         push @tell, $mytell->($fh);
-
+        if ($go and length $dest and $do_ungetc) {
+            $fh->ungetc( ord(substr $dest, -1, 1, '') );
+            push @tell, $mytell->($fh);
+        }
     }
     while ($go and $coderefs[0]->($fh, \$dest)) {
         push @tell, $mytell->($fh);

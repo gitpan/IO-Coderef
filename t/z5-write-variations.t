@@ -6,6 +6,8 @@ use IO::Coderef;
 use IO::Handle;
 use File::Temp qw/tempdir/;
 use Fcntl 'SEEK_CUR';
+use File::Slurp;
+use Fatal qw/open close/;
 
 our $test_write_dest;
 our %tell_result_sequence;
@@ -44,8 +46,7 @@ sub run_test {
     open my $ref_fh, ">", $tmpfile;
     do_test_writes($ref_fh, 0,  map {$_->{CodeRef}} @writecode);
     close $ref_fh;
-    open $ref_fh, "<", $tmpfile;
-    my $want = do { local $/ ; <$ref_fh> };
+    my $want = read_file $tmpfile;
 
     if ($failure_message) {
         fail("$test_srccode test bailed: real write: $failure_message");

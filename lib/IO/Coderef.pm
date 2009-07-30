@@ -9,11 +9,11 @@ IO::Coderef - Emulate file interface for a code reference
 
 =head1 VERSION
 
-Version 0.93
+Version 0.94
 
 =cut
 
-our $VERSION = '0.93';
+our $VERSION = '0.94';
 
 =head1 SYNOPSIS
 
@@ -223,10 +223,11 @@ sub TIEHANDLE
 sub close
 {
     my $self = shift;
+    return unless defined *$self->{Code};
     if (*$self->{W}) {
         *$self->{Code}('');
     }
-    foreach my $key (qr/Code Buf Eof R W Pos/) {
+    foreach my $key (qw/Code Buf Eof R W Pos/) {
         delete *$self->{$key};
     }
     undef *$self if $] eq "5.008";  # cargo culted from IO::String
@@ -260,8 +261,9 @@ sub ungetc
     my ($self, $char) = @_;
     *$self->{R} or croak "read on write-only IO::Coderef";
     my $buf = *$self->{Buf};
-    $$buf = $char . $$buf;
+    $$buf = chr($char) . $$buf;
     --*$self->{Pos};
+    delete *$self->{Eof};
     return 1;
 }
 
@@ -296,6 +298,8 @@ sub getline
         $self->_doread while *$self->{Code};
         *$self->{Pos} += length $$buf;
         *$self->{Eof} = 1;
+        my $newbuf = '';
+        *$self->{Buf} = \$newbuf;
         return $$buf;
     }
 
@@ -329,6 +333,8 @@ sub getline
             # EOL not in buffer and no more data to come - the last line is missing its EOL.
             *$self->{Eof} = 1;
             *$self->{Pos} += length $$buf;
+            my $newbuf = '';
+            *$self->{Buf} = \$newbuf;
             return $$buf if length $$buf;
             return;
         }

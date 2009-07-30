@@ -1,6 +1,6 @@
 ---
 name: IO-Coderef
-version: 0.93
+version: 0.94
 author:
   - 'Dave Taylor <dave.taylor.cpan@gmail.com>'
 abstract: Emulate file interface for a code reference
@@ -13,13 +13,14 @@ requires:
 build_requires:
   Fatal: 0
   Fcntl: 0
+  File::Slurp: 0
   File::Temp: 0
   IO::Handle: 0
   Test::More: 0
 provides:
   IO::Coderef:
     file: lib/IO/Coderef.pm
-    version: 0.93
+    version: 0.94
 generated_by: Module::Build version 0.280801
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html

@@ -3,8 +3,9 @@ use warnings;
 use Test::More;
 
 use IO::Coderef;
+use File::Slurp;
 use File::Temp qw/tempdir/;
-use Fatal qw/open/;
+use Fatal qw/open close/;
 
 $SIG{__WARN__} = sub {
     my $warning = shift;
@@ -67,8 +68,7 @@ foreach my $include_undef_params (0, 1) {
                 }
                 is( $got, $want, "$test_name results same as real file" );
 
-                open my $fh, "<", $tmpfile;
-                my $want_contents = do { local $/ ; <$fh> };
+                my $want_contents = read_file $tmpfile;
                 is( $got_contents, $want_contents, "$test_name data written same as real file" );
             }
         }

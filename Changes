@@ -1,5 +1,10 @@
 Revision history for IO::Coderef
 
+0.94    2007-07-30
+        Added tests for ungetc, watched them fail, fixed it.
+        Prevented extra callback call on double close of write handle.
+        Made use of File::Slurp in the test suite.
+
 0.93    2007-07-29
         Even more tests.
         Pillaged some test scripts from IO::String.

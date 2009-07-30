@@ -1,6 +1,7 @@
 use strict;
 use warnings;
 use Test::More;
+use File::Slurp;
 use File::Temp qw/tempfile/;
 use Fatal qw/open close unlink/;
 
@@ -41,8 +42,7 @@ close $tmp_fh;
 unlink $tmp_file;
 
 ok( copy($coderef_read_fh, $tmp_file), "copy coderef->realfile succeeded" );
-open $tmp_fh, "<", $tmp_file;
-my $copy_got = do { local $/ ; <$tmp_fh> };
+my $copy_got = read_file $tmp_file;
 is( $copy_got, $test_data, "copy coderef->realfile copied correct data" );
 
 ok( copy($tmp_file, $coderef_write_fh), "copy realfile->coderef succeeded" );
@@ -50,6 +50,5 @@ close $coderef_write_fh;
 is( $got_close, 1, "got close on fh" );
 is( $got_data, $test_data, "copy realfile->coderef copied correct data" );
 
-close $tmp_fh;
 unlink $tmp_file;
 

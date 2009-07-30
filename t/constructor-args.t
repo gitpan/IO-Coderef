@@ -27,7 +27,7 @@ my @extra_constructor_args = (
 my $consarg;
 
 sub read_callback {
-    is_deeply( [@_], $consarg, "constructor args passed through to callback" );
+    is( flat(@_), flat(@$consarg), "flattened constructor args consistent" );
     return;
 }
 
@@ -70,5 +70,9 @@ while ( my ($src_name, $src) = each %constructor_source ) {
 
     eval { $res = $src->new('<', 1) };
     like( $@, qr{^non-coderef second argument in IO::Coderef::new at t/constructor-args\.t line \d+}, "$src_name valid mode invalid sub" );
+}
+
+sub flat {
+    return join ",", map { defined() ? "{$_}" : "undef" } @ARGV;
 }
 
